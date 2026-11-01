@@ -2,6 +2,8 @@
 
 A single static page (`index.html`). Press **Analyze**: the left half of the button gives "Not true" and the right half gives "True". Tap anywhere to reset. Keys: `Space` = not true, `Enter` = true, `Esc` = reset.
 
+The voice trace and dB readout come from the real microphone once you allow access. Audio is only analysed live in the browser and is never recorded, stored or sent anywhere. If the mic is denied or unavailable, the trace falls back to a simulated signal. Microphone access needs HTTPS or localhost.
+
 ## Run locally
 
 ```sh
