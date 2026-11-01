@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>:root{box-sizing:border-box;overflow:hidden;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}</style>
 <title>Veritas VX-9 Polygraph</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
@@ -22,13 +23,18 @@ body{background:var(--bg);color:var(--fg);font-family:var(--mono);overflow:hidde
 header{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap}
 .brand{font-family:var(--display);font-weight:900;font-size:clamp(24px,4vw,34px);letter-spacing:.06em;text-transform:uppercase;line-height:1;white-space:nowrap}
 .brand small{font-family:var(--mono);font-weight:400;font-size:11px;color:var(--muted);letter-spacing:.12em;margin-left:10px;white-space:nowrap}
-.status{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.dot{width:9px;height:9px;border-radius:50%;background:var(--lie);animation:blink 1.1s steps(2) infinite}
+.status{display:flex;align-items:center;gap:8px;font:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  background:none;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;touch-action:manipulation}
+.status:focus{outline:none}.status:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted);transition:background .2s,box-shadow .2s}
+.status.on .dot{background:var(--lie);animation:blink 1.1s steps(2) infinite}
+.status.voice{color:var(--trace);border-color:var(--trace)}
+.status.voice .dot{background:var(--trace);box-shadow:0 0 8px var(--trace);animation:none}
 @keyframes blink{50%{opacity:.15}}
 .scope{flex:1;min-height:180px;position:relative;background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden}
 canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .scope-label{position:absolute;top:10px;left:12px;font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;z-index:1}
-.scope-db{position:absolute;top:10px;right:12px;font-size:11px;color:var(--trace);font-variant-numeric:tabular-nums;z-index:1}
+.scope-db{position:absolute;top:10px;right:12px;font-size:11px;color:var(--muted);transition:color .2s;font-variant-numeric:tabular-nums;z-index:1}
 .readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .ro{border-top:1px solid var(--line);padding-top:8px;min-width:0}
 .ro span{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
@@ -39,8 +45,10 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   color:var(--trace);background:var(--panel);border:2px solid var(--trace);border-radius:6px;cursor:pointer;
   touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .08s,background .08s}
 .go:active,.go.pressed{transform:scale(.97);background:var(--trace-dim)}
+.go.off{opacity:.35;cursor:not-allowed}.go.off:active{transform:none;background:var(--panel)}
 .go:focus{outline:none}.go:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
 .go-dot{width:12px;height:12px;border-radius:50%;background:var(--trace);box-shadow:0 0 10px var(--trace)}
+.scope-db.voice{color:var(--trace)}
 @media (max-width:560px){
   .readouts{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px}
   .scope-label{right:90px}
@@ -69,11 +77,6 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .analyzing .bar i{animation:fill 1.6s linear forwards}
 @keyframes fill{to{width:100%}}
 
-.hint{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:6;
-  background:var(--panel);border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:10px 14px;
-  font-size:12px;line-height:1.5;width:max-content;max-width:calc(100vw - 32px);text-align:center;transition:opacity .6s}
-.hint.gone{opacity:0;pointer-events:none}
-.hint b{color:var(--trace);font-weight:500}
 @media (prefers-reduced-motion:reduce){.dot,.overlay .verdict{animation:none}}
 </style>
 </head><body>
@@ -81,11 +84,11 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 <div class="app" id="app">
   <header>
     <div class="brand">Veritas VX-9<small>Voice stress analyzer</small></div>
-    <div class="status"><span class="dot"></span><span>Recording · subject audio</span></div>
+    <button class="status" id="mic" type="button" aria-pressed="false"><span class="dot"></span><span id="micLabel">Mic off</span></button>
   </header>
   <div class="scope">
     <div class="scope-label">Vocal microtremor · 8–14 Hz</div>
-    <div class="scope-db" id="db">-32.0 dB</div>
+    <div class="scope-db" id="db">— dB</div>
     <canvas id="c"></canvas>
   </div>
   <div class="readouts">
@@ -103,15 +106,9 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div class="bar"><i></i></div>
 </div>
 
-<div class="hint" id="hint">
-  Press <b>Analyze</b> to scan · tap to reset<br>
-  Keys: <b>Space</b> = not true · <b>Enter</b> = true
-</div>
-
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
 const ov=document.getElementById('ov'),vText=document.getElementById('vText'),vSub=document.getElementById('vSub'),bar=ov.querySelector('.bar');
-const hint=document.getElementById('hint');
 const rootStyle=getComputedStyle(document.documentElement);
 const C={line:rootStyle.getPropertyValue('--line').trim()||'#24343a',trace:rootStyle.getPropertyValue('--trace').trim()||'#f2b13a',dim:rootStyle.getPropertyValue('--trace-dim').trim()||'rgba(242,177,58,.18)'};
 let W=0,H=0;
@@ -119,19 +116,66 @@ function size(){const dpr=Math.min(window.devicePixelRatio||1,2);const r=cv.getB
 addEventListener('resize',size);addEventListener('orientationchange',()=>setTimeout(size,200));size();
 if(window.ResizeObserver)new ResizeObserver(size).observe(cv.parentElement);
 
-// Fake "speech": amplitude envelope with syllable bursts and pauses
-let t=0,env=0,target=0,nextChange=0;const history=[];
-function speech(){
-  if(t>nextChange){
-    const talking=Math.random()<.72;
-    target=talking?.35+Math.random()*.65:Math.random()*.06;
-    nextChange=t+(talking?6+Math.random()*16:10+Math.random()*30);
-  }
-  env+=(target-env)*.18;return env;
+let t=0,env=0;const history=[];
+// Real microphone: the trace follows the live input. Samples are only analysed in memory,
+// never recorded, stored or sent. Toggled with the status chip in the header or the M key.
+let micWanted=true,micBlocked=false,stream=null,ac=null,an=null,buf=null,micPending=false;
+let db=-90,dbS=-90,floor=-60,voice=false;
+async function startMic(){
+  if(!micWanted)return;
+  if(ac){if(ac.state==='suspended')ac.resume().catch(()=>{});return}
+  if(micPending)return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){micBlocked=true;updateMicUi();return}
+  micPending=true;
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}});
+    if(!micWanted){s.getTracks().forEach(tr=>tr.stop())} // switched off while the permission prompt was open
+    else{
+      stream=s;micBlocked=false;
+      ac=new(window.AudioContext||window.webkitAudioContext)();
+      an=ac.createAnalyser();an.fftSize=1024;an.smoothingTimeConstant=0;buf=new Float32Array(an.fftSize);
+      ac.createMediaStreamSource(stream).connect(an); // analyser only, not connected to the speakers
+      if(ac.state==='suspended')ac.resume().catch(()=>{});
+      floor=-60;
+    }
+  }catch(e){micBlocked=true}
+  micPending=false;updateMicUi();
 }
+function stopMic(){
+  if(stream)stream.getTracks().forEach(tr=>tr.stop());
+  if(ac)ac.close().catch(()=>{});
+  stream=ac=an=null;voice=false;updateMicUi();
+}
+function micLevel(){
+  an.getFloatTimeDomainData(buf);
+  let sum=0;for(let i=0;i<buf.length;i++)sum+=buf[i]*buf[i];
+  db=Math.max(-90,20*Math.log10(Math.sqrt(sum/buf.length)+1e-9));
+  floor=db<floor?db:floor+.03; // room noise floor: drops at once, creeps up slowly
+  const target=Math.min(1,Math.max(0,(db-floor-8)/30));
+  env+=(target-env)*(target>env?.2:.05);
+  dbS+=(db-dbS)*.1;
+  return env;
+}
+const micBtn=document.getElementById('mic'),micLabel=document.getElementById('micLabel'),dbEl=document.getElementById('db');
+const isLive=()=>!!(an&&ac.state==='running');
+function updateMicUi(){
+  const live=isLive();
+  const go=document.getElementById('go');go.classList.toggle('off',!live);go.setAttribute('aria-disabled',String(!live)); // Analyze only works while listening
+  micBtn.classList.toggle('on',live);micBtn.classList.toggle('voice',live&&voice);dbEl.classList.toggle('voice',live&&voice);
+  micBtn.setAttribute('aria-pressed',String(micWanted));
+  micLabel.textContent=!micWanted?'Mic off':micBlocked?'Mic blocked':!live?'Tap to listen':voice?'Voice detected':'Listening';
+}
+function toggleMic(){micWanted=!micWanted;micWanted?startMic():stopMic();updateMicUi()}
+let skipMicClick=false; // a tap that dismisses a verdict shouldn't also flip the mic
+micBtn.addEventListener('click',()=>{if(skipMicClick){skipMicClick=false;return}toggleMic()});
+updateMicUi();startMic();
 const $=id=>document.getElementById(id);
 function draw(){
-  t++;const a=speech();
+  t++;const live=!!(an&&ac.state==='running');
+  if(!live&&env>0)env=Math.max(0,env-.05);
+  const a=live?micLevel():env;
+  const v=live&&(voice?a>.07:a>.15);if(v!==voice){voice=v;updateMicUi()}
+  if(t%30===0)updateMicUi(); // picks up the audio context resuming after a gesture
   history.push(a);if(history.length>300)history.shift();
   ctx.clearRect(0,0,W,H);
   ctx.strokeStyle=C.line;ctx.lineWidth=1;ctx.beginPath();
@@ -145,12 +189,12 @@ function draw(){
   const step=W<500?3:2;
   for(let x=0;x<=W;x+=step){
     const p=x/W*Math.PI*2;
-    const y=mid+a*H*.36*(Math.sin(p*6+t*.31)*.55+Math.sin(p*17-t*.73)*.3+Math.sin(p*41+t*1.7)*.15)*(.75+Math.random()*.25)+(Math.random()-.5)*3;
+    const y=mid+a*H*.36*(Math.sin(p*6+t*.31)*.55+Math.sin(p*17-t*.73)*.3+Math.sin(p*41+t*1.7)*.15);
     x?ctx.lineTo(x,y):ctx.moveTo(x,y);
   }
   ctx.stroke();
   if(t%6===0){
-    $('db').textContent=(-48+a*44+Math.random()*2).toFixed(1)+' dB';
+    dbEl.textContent=live?dbS.toFixed(1)+' dB':'— dB';
     $('pitch').firstChild.nodeValue=Math.round(150+a*90+Math.random()*12);
     $('stress').textContent=(.2+a*.5+Math.random()*.08).toFixed(2);
   }
@@ -167,13 +211,9 @@ let lock=null;
 async function wake(){try{if(!lock&&navigator.wakeLock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>{lock=null})}}catch(e){}}
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wake()});
 
-// Hint: shown on load, fades after 6 s or at first input
-let hintTimer=setTimeout(()=>hint.classList.add('gone'),6000);
-function hideHint(){clearTimeout(hintTimer);hint.classList.add('gone')}
-
 let busy=false,timer;
 function verdict(isTrue){
-  if(busy)return;busy=true;hideHint();
+  if(busy)return;busy=true;
   ov.className='overlay analyzing';ov.hidden=false;bar.hidden=false;
   vText.textContent='Analyzing…';vSub.textContent='Cross-referencing vocal stress markers';
   const fill=bar.firstElementChild;fill.style.animation='none';void fill.offsetWidth;fill.style.animation='';
@@ -188,8 +228,11 @@ function verdict(isTrue){
 function reset(){clearTimeout(timer);ov.hidden=true;busy=false}
 
 addEventListener('keydown',e=>{
-  if(e.code==='Space'||e.key===' '){e.preventDefault();ov.hidden?verdict(false):reset()}
-  else if(e.key==='Enter'){e.preventDefault();ov.hidden?verdict(true):reset()}
+  if(e.repeat)return;
+  if(e.key==='m'||e.key==='M'){toggleMic();return}
+  startMic();
+  if(e.code==='Space'||e.key===' '){e.preventDefault();ov.hidden?isLive()&&verdict(false):reset()}
+  else if(e.key==='Enter'){e.preventDefault();ov.hidden?isLive()&&verdict(true):reset()}
   else if(e.key==='Escape')reset();
 });
 
@@ -199,9 +242,9 @@ const btn=$('go');
 let lastTap=0;
 function onTap(x,target){
   const now=Date.now();if(now-lastTap<350)return;lastTap=now; // ignore the duplicate touch+pointer event
-  wake();
-  if(!ov.hidden){reset();return}
-  if(!btn.contains(target))return;
+  wake();startMic(); // browsers only let audio start after a user gesture
+  if(!ov.hidden){skipMicClick=micBtn.contains(target);reset();return}
+  if(!btn.contains(target)||!isLive())return;
   const r=btn.getBoundingClientRect();
   btn.classList.add('pressed');setTimeout(()=>btn.classList.remove('pressed'),120);
   verdict(x>r.left+r.width/2);

@@ -2,6 +2,8 @@
 
 A single static page (`index.html`). Press **Analyze**: the left half of the button gives "Not true" and the right half gives "True". Tap anywhere to reset. Keys: `Space` = not true, `Enter` = true, `Esc` = reset.
 
+The voice trace and dB readout come from the real microphone once you allow access. Audio is only analysed live in the browser and is never recorded, stored or sent anywhere. Tap the status chip in the header (or press `M`) to turn the mic on or off; it reads "Voice detected" while it's picking you up. With the mic off or blocked the trace stays flat. Microphone access needs HTTPS or localhost.
+
 ## Run locally
 
 ```sh
