@@ -45,6 +45,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   color:var(--trace);background:var(--panel);border:2px solid var(--trace);border-radius:6px;cursor:pointer;
   touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .08s,background .08s}
 .go:active,.go.pressed{transform:scale(.97);background:var(--trace-dim)}
+.go.off{opacity:.35;cursor:not-allowed}.go.off:active{transform:none;background:var(--panel)}
 .go:focus{outline:none}.go:focus-visible{outline:2px solid var(--fg);outline-offset:3px}
 .go-dot{width:12px;height:12px;border-radius:50%;background:var(--trace);box-shadow:0 0 10px var(--trace)}
 .scope-db.voice{color:var(--trace)}
@@ -156,8 +157,10 @@ function micLevel(){
   return env;
 }
 const micBtn=document.getElementById('mic'),micLabel=document.getElementById('micLabel'),dbEl=document.getElementById('db');
+const isLive=()=>!!(an&&ac.state==='running');
 function updateMicUi(){
-  const live=!!(an&&ac.state==='running');
+  const live=isLive();
+  const go=document.getElementById('go');go.classList.toggle('off',!live);go.setAttribute('aria-disabled',String(!live)); // Analyze only works while listening
   micBtn.classList.toggle('on',live);micBtn.classList.toggle('voice',live&&voice);dbEl.classList.toggle('voice',live&&voice);
   micBtn.setAttribute('aria-pressed',String(micWanted));
   micLabel.textContent=!micWanted?'Mic off':micBlocked?'Mic blocked':!live?'Tap to listen':voice?'Voice detected':'Listening';
@@ -228,8 +231,8 @@ addEventListener('keydown',e=>{
   if(e.repeat)return;
   if(e.key==='m'||e.key==='M'){toggleMic();return}
   startMic();
-  if(e.code==='Space'||e.key===' '){e.preventDefault();ov.hidden?verdict(false):reset()}
-  else if(e.key==='Enter'){e.preventDefault();ov.hidden?verdict(true):reset()}
+  if(e.code==='Space'||e.key===' '){e.preventDefault();ov.hidden?isLive()&&verdict(false):reset()}
+  else if(e.key==='Enter'){e.preventDefault();ov.hidden?isLive()&&verdict(true):reset()}
   else if(e.key==='Escape')reset();
 });
 
@@ -241,7 +244,7 @@ function onTap(x,target){
   const now=Date.now();if(now-lastTap<350)return;lastTap=now; // ignore the duplicate touch+pointer event
   wake();startMic(); // browsers only let audio start after a user gesture
   if(!ov.hidden){skipMicClick=micBtn.contains(target);reset();return}
-  if(!btn.contains(target))return;
+  if(!btn.contains(target)||!isLive())return;
   const r=btn.getBoundingClientRect();
   btn.classList.add('pressed');setTimeout(()=>btn.classList.remove('pressed'),120);
   verdict(x>r.left+r.width/2);
